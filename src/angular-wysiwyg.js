@@ -86,7 +86,7 @@ Requires:
                     textareaCustomMenu: '=textareaCustomMenu',
                     fn: '&',
                     disabled: '=?disabled',
-                    textareaCustomFunctions: '=textareaCustomFunctions'
+                    textareaCustomFunctions: '=?textareaCustomFunctions'
                 },
                 replace: true,
                 require: 'ngModel',
@@ -393,6 +393,11 @@ Requires:
                     textarea.html(ngModelController.$viewValue);
                 };
 
+                scope.focus = function () {
+                    var focusHolder = angular.isFunction(textarea.focus) ? textarea : (angular.isFunction(textarea[0].focus) ? textarea[0] : {focus: angular.noop});
+                    focusHolder.focus();
+                };
+
                 scope.format = function (cmd, arg) {
                     document.execCommand(cmd, false, arg);
                 };
@@ -453,10 +458,12 @@ Requires:
                 };
                 scope.textareaCustomFunctions = scope.textareaCustomFunctions || {};
                 for (var i in scope.textareaCustomFunctions) {
-                    if (scope[i] == null) {
-                        scope[i] = scope.textareaCustomFunctions[i];
-                    } else {
-                        console.log('Cannot set custom function `' + i + '`. Already exists function or property');
+                    if (scope.textareaCustomFunctions.hasOwnProperty(i)) {
+                        if (scope[i] == null) {
+                            scope[i] = scope.textareaCustomFunctions[i].bind(null, scope);
+                        } else {
+                            console.log('Cannot set custom function `' + i + '`. Already exists function or property');
+                        }
                     }
                 }
                 scope.format('enableobjectresizing', true);
@@ -555,7 +562,9 @@ Requires:
 
                 if (obj.data && obj.data.length) {
                     for (var item in obj.data) {
-                        el.appendChild(create(obj.data[item]));
+                        if (obj.data.hasOwnProperty(item)) {
+                            el.appendChild(create(obj.data[item]));
+                        }
                     }
                 }
 

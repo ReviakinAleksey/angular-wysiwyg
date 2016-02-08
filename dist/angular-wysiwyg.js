@@ -61,16 +61,18 @@ Requires:
       [
         'link',
         'image'
-      ]
+      ],
+      ['toggle-mode']
     ];
   angular.module('wysiwyg.module', ['colorpicker.module']).directive('wysiwyg', [
     '$timeout',
     'wysiwgGui',
     '$compile',
     '$window',
-    function ($timeout, wysiwgGui, $compile, $window) {
+    '$http',
+    function ($timeout, wysiwgGui, $compile, $window, $http) {
       return {
-        template: '<div>' + '<style>' + '   .wysiwyg-textarea[contentEditable="false"] { background-color:#eee}' + '   .wysiwyg-btn-group-margin { margin-right:5px; }' + '   .wysiwyg-select { height:30px;margin-bottom:1px;}' + '   .wysiwyg-colorpicker { font-family: arial, sans-serif !important;font-size:16px !important; padding:2px 10px !important;}' + '</style>' + '<div class="wysiwyg-menu"></div>' + '<div id="{{textareaId}}" ng-attr-style="resize:vertical;height:{{textareaHeight || \'80px\'}}; overflow:auto" contentEditable="{{!disabled}}" class="{{textareaClass}} wysiwyg-textarea" rows="{{textareaRows}}" name="{{textareaName}}" required="{{textareaRequired}}" placeholder="{{textareaPlaceholder}}" ng-model="value"></div>' + '</div>',
+        template: '<div>' + '<style>' + '   .wysiwyg-textarea[contentEditable="false"] { background-color:#eee}' + '   .wysiwyg-btn-group-margin { margin-right:5px; }' + '   .wysiwyg-select { height:30px;margin-bottom:1px;}' + '   .wysiwyg-colorpicker { font-family: arial, sans-serif !important;font-size:16px !important; padding:2px 10px !important;}' + '</style>' + '<div class="wysiwyg-menu"></div>' + '<div class="wysiwyg-image-uploader hidden">' + '   <h4>Insert Image</h4>' + '   <ul class="nav nav-tabs" style="margin-top:10px;margin-bottom:10px">' + '       <li role="presentation" ng-class="{active:imageView === \'file\'}"><a href="javascript:void(0)" ng-click="changeImageView(\'file\')">File</a></li>' + '       <li role="presentation" class="disabled"><a href="javascript:void(0)" ng-click="changeImageView(\'url\')">URL</a></li>' + '       <li role="presentation" class="disabled"><a href="javascript:void(0)" ng-click="changeImageView(\'flickr\')">Flickr</a></li>' + '   </ul>' + '   <div ng-if="imageView === \'file\'">' + '       <ul class="list-unstyled">' + '           <li ng-repeat="file in files.user">' + '               <a href="javascript:void(0)" ng-click="selectImage(file)">' + '                   <img src="{{ file.thumbnail_url }}" /> {{ file.display_name }}' + '               </a>' + '           </li>' + '       </ul>' + '   </div>' + '</div>' + '<div id="{{textareaId}}" ng-attr-style="resize:vertical;height:{{textareaHeight || \'80px\'}}; overflow:auto" contentEditable="{{!disabled}}" class="{{textareaClass}} wysiwyg-textarea" rows="{{textareaRows}}" name="{{textareaName}}" required="{{textareaRequired}}" placeholder="{{textareaPlaceholder}}" ng-model="value" ng-show="htmlMode"></div>' + '<div ng-show="!htmlMode" ng-attr-style="resize:vertical;height:{{textareaHeight || \'80px\'}}; overflow:auto" contentEditable="{{!disabled}}" class="{{textareaClass}} wysiwyg-textarea" name="{{textareaName}}" ng-bind="value"></div>' + '</div>',
         restrict: 'E',
         scope: {
           value: '=ngModel',
@@ -83,7 +85,7 @@ Requires:
           textareaCustomMenu: '=textareaCustomMenu',
           fn: '&',
           disabled: '=?disabled',
-          textareaCustomFunctions: '=textareaCustomFunctions'
+          textareaCustomFunctions: '=?textareaCustomFunctions'
         },
         replace: true,
         require: 'ngModel',
@@ -91,7 +93,7 @@ Requires:
         transclude: true
       };
       function link(scope, element, attrs, ngModelController) {
-        var textarea = element.find('div.wysiwyg-textarea');
+        var textarea = element.find('div.wysiwyg-textarea'), textareaRaw = textarea.next();
         scope.isLink = false;
         scope.fontSizes = [
           {
@@ -173,6 +175,19 @@ Requires:
           'Helvetica Neue'
         ].sort();
         scope.font = scope.fonts[6];
+        scope.htmlMode = true;
+        scope.files = {
+          user: [],
+          course: []
+        };
+        scope.imageView = 'file';
+        scope.changeImageView = function (type) {
+          scope.imageView = type;
+        };
+        scope.selectImage = function (image) {
+          scope.format('insertimage', image.url);
+          element.find('.wysiwyg-image-uploader').addClass('hidden');
+        };
         init();
         function init() {
           applyDefaultsFromStyle();
@@ -180,6 +195,13 @@ Requires:
           configureWatchers();
           configureBootstrapTitle();
           configureListeners();
+          getFiles();
+        }
+        function getFiles() {
+          $http.get('/api/v1/users/self/files').then(function (resp) {
+            scope.files.user = resp.data;
+          });
+          ;
         }
         function updateSelectedColorButton() {
           element.find('button.wysiwyg-fontcolor').css('color', scope.fontColor);
@@ -342,6 +364,10 @@ Requires:
         ngModelController.$render = function () {
           textarea.html(ngModelController.$viewValue);
         };
+        scope.focus = function () {
+          var focusHolder = angular.isFunction(textarea.focus) ? textarea : angular.isFunction(textarea[0].focus) ? textarea[0] : { focus: angular.noop };
+          focusHolder.focus();
+        };
         scope.format = function (cmd, arg) {
           document.execCommand(cmd, false, arg);
         };
@@ -351,15 +377,28 @@ Requires:
         scope.cmdValue = function (cmd) {
           return document.queryCommandValue(cmd);
         };
+        scope.toggleHtml = function () {
+          scope.htmlMode = !scope.htmlMode;
+          if (scope.htmlMode) {
+            var rawValue = $('<div/>').html(textareaRaw.html()).text();
+            textarea.html(rawValue);
+            textarea.trigger('click');
+            textarea.trigger('input');
+          }
+        };
         scope.createLink = function () {
           var input = prompt('Enter the link URL');
           if (input && input !== undefined)
             scope.format('createlink', input);
         };
+        // scope.insertImage = function () {
+        //     var input = prompt('Enter the image URL');
+        //     if (input && input !== undefined)
+        //         scope.format('insertimage', input);
+        // };
         scope.insertImage = function () {
-          var input = prompt('Enter the image URL');
-          if (input && input !== undefined)
-            scope.format('insertimage', input);
+          var uploader = element.find('.wysiwyg-image-uploader');
+          uploader.toggleClass('hidden');
         };
         scope.setFont = function () {
           scope.format('fontname', scope.font);
@@ -378,99 +417,106 @@ Requires:
         };
         scope.textareaCustomFunctions = scope.textareaCustomFunctions || {};
         for (var i in scope.textareaCustomFunctions) {
-          if (scope[i] == null) {
-            scope[i] = scope.textareaCustomFunctions[i];
-          } else {
-            console.log('Cannot set custom function `' + i + '`. Already exists function or property');
+          if (scope.textareaCustomFunctions.hasOwnProperty(i)) {
+            if (scope[i] == null) {
+              scope[i] = scope.textareaCustomFunctions[i].bind(null, scope);
+            } else {
+              console.log('Cannot set custom function `' + i + '`. Already exists function or property');
+            }
           }
         }
         scope.format('enableobjectresizing', true);
         scope.format('styleWithCSS', true);
       }
     }
-  ]).factory('wysiwgGui', function (wysiwgGuiElements) {
-    var ELEMENTS = wysiwgGuiElements;
-    var custom = {};
-    var setCustomElements = function (el) {
-      custom = el;
-    };
-    var getMenuGroup = function () {
-      return {
-        tag: 'div',
-        classes: 'btn-group btn-group-sm wysiwyg-btn-group-margin'
+  ]).factory('wysiwgGui', [
+    'wysiwgGuiElements',
+    function (wysiwgGuiElements) {
+      var ELEMENTS = wysiwgGuiElements;
+      var custom = {};
+      var setCustomElements = function (el) {
+        custom = el;
       };
-    };
-    var getMenuItem = function (item) {
-      return ELEMENTS[item] || {};
-    };
-    var createMenu = function (menu) {
-      angular.extend(ELEMENTS, custom);
-      //Get the default menu or the passed in menu
-      if (angular.isDefined(menu) && menu !== '') {
-        menu = menu;  //stringToArray(menu)
-      } else {
-        menu = DEFAULT_MENU;
-      }
-      //create div to add everything to.
-      var startDiv = document.createElement('div');
-      var el;
-      for (var i = 0; i < menu.length; i++) {
-        var menuGroup = create(getMenuGroup());
-        for (var j = 0; j < menu[i].length; j++) {
-          //link has two functions link and unlink
-          if (menu[i][j] === 'link') {
-            el = create(getMenuItem('unlink'));
+      var getMenuGroup = function () {
+        return {
+          tag: 'div',
+          classes: 'btn-group btn-group-sm wysiwyg-btn-group-margin'
+        };
+      };
+      var getMenuItem = function (item) {
+        return ELEMENTS[item] || {};
+      };
+      var createMenu = function (menu) {
+        angular.extend(ELEMENTS, custom);
+        //Get the default menu or the passed in menu
+        if (angular.isDefined(menu) && menu !== '') {
+          menu = menu;  //stringToArray(menu)
+        } else {
+          menu = DEFAULT_MENU;
+        }
+        //create div to add everything to.
+        var startDiv = document.createElement('div');
+        var el;
+        for (var i = 0; i < menu.length; i++) {
+          var menuGroup = create(getMenuGroup());
+          for (var j = 0; j < menu[i].length; j++) {
+            //link has two functions link and unlink
+            if (menu[i][j] === 'link') {
+              el = create(getMenuItem('unlink'));
+              menuGroup.appendChild(el);
+            }
+            el = create(getMenuItem(menu[i][j]));
             menuGroup.appendChild(el);
           }
-          el = create(getMenuItem(menu[i][j]));
-          menuGroup.appendChild(el);
+          startDiv.appendChild(menuGroup);
         }
-        startDiv.appendChild(menuGroup);
-      }
-      return startDiv;
-    };
-    function create(obj) {
-      var el;
-      if (obj.tag) {
-        el = document.createElement(obj.tag);
-      } else if (obj.text) {
-        el = document.createElement('span');
-      } else {
-        console.log('cannot create', obj, 'element.');
-        el = document.createElement('span');
-        return el;
-      }
-      if (obj.text && document.all) {
-        el.innerText = obj.text;
-      } else if (obj.text) {
-        el.textContent = obj.text;
-      }
-      if (obj.classes) {
-        el.className = obj.classes;
-      }
-      if (obj.html) {
-        el.innerHTML = obj.html;
-      }
-      if (obj.attributes && obj.attributes.length) {
-        for (var i in obj.attributes) {
-          var attr = obj.attributes[i];
-          if (attr.name && attr.value) {
-            el.setAttribute(attr.name, attr.value);
+        return startDiv;
+      };
+      function create(obj) {
+        var el;
+        if (obj.tag) {
+          el = document.createElement(obj.tag);
+        } else if (obj.text) {
+          el = document.createElement('span');
+        } else {
+          console.log('cannot create', obj, 'element.');
+          el = document.createElement('span');
+          return el;
+        }
+        if (obj.text && document.all) {
+          el.innerText = obj.text;
+        } else if (obj.text) {
+          el.textContent = obj.text;
+        }
+        if (obj.classes) {
+          el.className = obj.classes;
+        }
+        if (obj.html) {
+          el.innerHTML = obj.html;
+        }
+        if (obj.attributes && obj.attributes.length) {
+          for (var i in obj.attributes) {
+            var attr = obj.attributes[i];
+            if (attr.name && attr.value) {
+              el.setAttribute(attr.name, attr.value);
+            }
           }
         }
-      }
-      if (obj.data && obj.data.length) {
-        for (var item in obj.data) {
-          el.appendChild(create(obj.data[item]));
+        if (obj.data && obj.data.length) {
+          for (var item in obj.data) {
+            if (obj.data.hasOwnProperty(item)) {
+              el.appendChild(create(obj.data[item]));
+            }
+          }
         }
+        return el;
       }
-      return el;
+      return {
+        createMenu: createMenu,
+        setCustomElements: setCustomElements
+      };
     }
-    return {
-      createMenu: createMenu,
-      setCustomElements: setCustomElements
-    };
-  }).value('wysiwgGuiElements', {
+  ]).value('wysiwgGuiElements', {
     'bold': {
       tag: 'button',
       classes: 'btn btn-default',
@@ -1098,6 +1144,28 @@ Requires:
       data: [{
           tag: 'i',
           classes: 'fa fa-unlink'
+        }]
+    },
+    'toggle-mode': {
+      tag: 'button',
+      classes: 'btn btn-default',
+      attributes: [
+        {
+          name: 'title',
+          value: 'Toggle HTML mode'
+        },
+        {
+          name: 'ng-click',
+          value: 'toggleHtml()'
+        },
+        {
+          name: 'type',
+          value: 'button'
+        }
+      ],
+      data: [{
+          tag: 'i',
+          classes: 'fa fa-edit'
         }]
     }
   });
