@@ -101,6 +101,9 @@ Requires:
                 var textarea = element.find('div.wysiwyg-textarea'),
                     textareaRaw = textarea.next();
 
+
+                var lastRange = null;
+
                 scope.isLink = false;
 
                 scope.fontSizes = [{
@@ -351,6 +354,12 @@ Requires:
 
                             scope.isLink = itemIs('A');
 
+
+                            var selection = document.getSelection();
+                            if (selection.rangeCount > 0){
+                                lastRange = selection.getRangeAt(0).cloneRange();
+                            }
+
                         }, 0);
                     });
                 }
@@ -398,6 +407,22 @@ Requires:
                 scope.focus = function () {
                     var focusHolder = angular.isFunction(textarea.focus) ? textarea : (angular.isFunction(textarea[0].focus) ? textarea[0] : {focus: angular.noop});
                     focusHolder.focus();
+                };
+
+                scope.restoreLastEditPosition = function () {
+                    if (lastRange == null) {
+                        lastRange =  document.createRange();
+                        lastRange.selectNodeContents(textarea[0]);
+                        var node = lastRange.startContainer;
+                        lastRange.setEnd(node, 0);
+                    }
+                    var selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(lastRange);
+                };
+
+                scope.getLastEditPosition = function(){
+                    return lastRange;
                 };
 
                 scope.format = function (cmd, arg) {

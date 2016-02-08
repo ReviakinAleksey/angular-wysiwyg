@@ -22,7 +22,7 @@ angular.module('app').run(['wysiwgConfig', function (wysiwgConfig) {
 
     wysiwgConfig.customFunctions.showInsertAlert = function (controller) {
         alert('Custom button handler');
-        controller.focus();
+        controller.restoreLastEditPosition();
         controller.format('insertText', 'Custom text insert');
     };
 
