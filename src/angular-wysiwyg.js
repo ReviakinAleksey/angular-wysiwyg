@@ -43,6 +43,8 @@ Requires:
         ['toggle-mode']
     ];
 
+    var DEFAULT_CUSTOM_FUNCTIONS = {};
+
     angular.module('wysiwyg.module', ['colorpicker.module'])
         .directive('wysiwyg', ['$timeout', 'wysiwgGui', '$compile', '$window', '$http', function ($timeout, wysiwgGui, $compile, $window, $http) {
             return {
@@ -456,7 +458,7 @@ Requires:
                 scope.setHiliteColor = function () {
                     scope.format('hiliteColor', scope.hiliteColor);
                 };
-                scope.textareaCustomFunctions = scope.textareaCustomFunctions || {};
+                scope.textareaCustomFunctions = scope.textareaCustomFunctions || DEFAULT_CUSTOM_FUNCTIONS;
                 for (var i in scope.textareaCustomFunctions) {
                     if (scope.textareaCustomFunctions.hasOwnProperty(i)) {
                         if (scope[i] == null) {
@@ -492,7 +494,7 @@ Requires:
 
             var createMenu = function (menu) {
 
-                angular.extend(ELEMENTS, custom);
+                ELEMENTS = angular.extend({}, ELEMENTS, custom);
 
                 //Get the default menu or the passed in menu
                 if (angular.isDefined(menu) && menu !== '') {
@@ -576,6 +578,9 @@ Requires:
                 setCustomElements: setCustomElements
             };
 
+        }])
+        .factory('wysiwgConfig', [ 'wysiwgGuiElements', function (wysiwgGuiElements) {
+            return {menu: DEFAULT_MENU, gui: wysiwgGuiElements, customFunctions: DEFAULT_CUSTOM_FUNCTIONS};
         }])
         .value('wysiwgGuiElements', {
             'bold': {

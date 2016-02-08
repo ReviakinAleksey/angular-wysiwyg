@@ -1,38 +1,41 @@
-var app = angular.module('app', ['colorpicker.module', 'wysiwyg.module'])
+var app = angular.module('app', ['colorpicker.module', 'wysiwyg.module']);
 
-app.controller('MyCtrl', function($scope) {
+angular.module('app').run(['wysiwgConfig', function (wysiwgConfig) {
+    wysiwgConfig.gui['insert-content'] = {
+        tag: 'button',
+        classes: 'btn btn-default',
+        attributes: [{
+            name: 'title',
+            value: 'Insert'
+        }, {
+            name: 'ng-click',
+            value: 'showInsertAlert()'
+        }, {
+            name: 'type',
+            value: 'button'
+        }],
+        data: [{
+            tag: 'i',
+            classes: 'fa fa-magic'
+        }]
+    };
+
+    wysiwgConfig.customFunctions.showInsertAlert = function (controller) {
+        alert('Custom button handler');
+        controller.focus();
+        controller.format('insertText', 'Custom text insert');
+    };
+
+    wysiwgConfig.menu.push(['insert-content'])
+
+}]);
+
+app.controller('MyCtrl', function ($scope) {
     $scope.data = {
         text: "hello"
     };
     $scope.disabled = false;
-    $scope.customElements = {
-        'insert-content': {
-            tag: 'button',
-            classes: 'btn btn-default',
-            attributes: [{
-                name: 'title',
-                value: 'Insert'
-            }, {
-                name: 'ng-click',
-                value: 'showInsertAlert()'
-            }, {
-                name: 'type',
-                value: 'button'
-            }],
-            data: [{
-                tag: 'i',
-                classes: 'fa fa-link'
-            }]
-        }
-    };
 
-    $scope.customFunctions = {
-        showInsertAlert: function (controller) {
-            alert('Custom button handler');
-            controller.focus();
-            controller.format('insertText', 'Custom text insert');
-        }
-    };
 
     $scope.menu = [
         ['bold', 'italic', 'underline', 'strikethrough', 'subscript', 'superscript'],
@@ -44,12 +47,12 @@ app.controller('MyCtrl', function($scope) {
         ['ordered-list', 'unordered-list', 'outdent', 'indent'],
         ['left-justify', 'center-justify', 'right-justify'],
         ['code', 'quote', 'paragraph'],
-        ['link', 'image', 'insert-content']
+        ['link', 'image']
     ];
 
     $scope.cssClasses = ['test1', 'test2'];
 
-    $scope.setDisabled = function() {
+    $scope.setDisabled = function () {
         $scope.disabled = !$scope.disabled;
     }
 });
