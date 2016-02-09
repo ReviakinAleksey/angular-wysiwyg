@@ -363,6 +363,19 @@ Requires:
                         scope.$emit('wysiwyg.click', title.attr('title') || title.attr('data-original-title'));
                     });
 
+                    textarea.on("drop", function(ev) {
+                        ev.preventDefault();
+                        var file = ev.originalEvent.dataTransfer.files[0],
+                            reader = new window.FileReader()
+                        ;
+
+                        reader.readAsDataURL(file);
+
+                        reader.onload = function(readerEv) {
+                            scope.selectImage(readerEv.target.result);
+                        };
+                    });
+
                     textarea.on('input keyup paste mouseup', function () {
                         var html = textarea.html();
 
