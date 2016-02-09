@@ -1,10 +1,42 @@
-var app = angular.module('app', ['colorpicker.module', 'wysiwyg.module'])
+var app = angular.module('app', ['colorpicker.module', 'wysiwyg.module']);
 
-app.controller('MyCtrl', function($scope) {
+angular.module('app').run(['wysiwgConfig', function (wysiwgConfig) {
+    wysiwgConfig.gui['insert-content'] = {
+        tag: 'button',
+        classes: 'btn btn-default',
+        attributes: [{
+            name: 'title',
+            value: 'Insert'
+        }, {
+            name: 'ng-click',
+            value: 'showInsertAlert()'
+        }, {
+            name: 'type',
+            value: 'button'
+        }],
+        data: [{
+            tag: 'i',
+            classes: 'fa fa-magic'
+        }]
+    };
+
+    wysiwgConfig.customFunctions.showInsertAlert = function (controller) {
+        alert('Custom button handler');
+        controller.restoreLastEditPosition();
+        controller.format('insertText', 'Custom text insert');
+    };
+
+    wysiwgConfig.menu.push(['insert-content'])
+
+}]);
+
+app.controller('MyCtrl', function ($scope) {
     $scope.data = {
         text: "hello"
-    }
+    };
     $scope.disabled = false;
+
+
     $scope.menu = [
         ['bold', 'italic', 'underline', 'strikethrough', 'subscript', 'superscript'],
         ['format-block'],
@@ -20,7 +52,7 @@ app.controller('MyCtrl', function($scope) {
 
     $scope.cssClasses = ['test1', 'test2'];
 
-    $scope.setDisabled = function() {
+    $scope.setDisabled = function () {
         $scope.disabled = !$scope.disabled;
     }
-})
+});

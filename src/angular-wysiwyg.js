@@ -43,6 +43,8 @@ Requires:
         ['toggle-mode']
     ];
 
+    var DEFAULT_CUSTOM_FUNCTIONS = {};
+
     angular.module('wysiwyg.module', ['colorpicker.module'])
         .directive('wysiwyg', ['$timeout', 'wysiwgGui', '$compile', '$window', '$http', function ($timeout, wysiwgGui, $compile, $window, $http) {
             return {
@@ -125,7 +127,7 @@ Requires:
                     textareaCustomMenu: '=textareaCustomMenu',
                     fn: '&',
                     disabled: '=?disabled',
-                    textareaCustomFunctions: '=textareaCustomFunctions'
+                    textareaCustomFunctions: '=?textareaCustomFunctions'
                 },
                 replace: true,
                 require: 'ngModel',
@@ -137,6 +139,9 @@ Requires:
 
                 var textarea = element.find('div.wysiwyg-textarea'),
                     textareaRaw = textarea.next();
+
+
+                var lastRange = null;
 
                 scope.isLink = false;
 
@@ -427,6 +432,12 @@ Requires:
 
                             scope.isLink = itemIs('A');
 
+
+                            var selection = document.getSelection();
+                            if (selection.rangeCount > 0){
+                                lastRange = selection.getRangeAt(0).cloneRange();
+                            }
+
                         }, 0);
                     });
                 }
@@ -469,6 +480,27 @@ Requires:
                 // model -> view
                 ngModelController.$render = function () {
                     textarea.html(ngModelController.$viewValue);
+                };
+
+                scope.focus = function () {
+                    var focusHolder = angular.isFunction(textarea.focus) ? textarea : (angular.isFunction(textarea[0].focus) ? textarea[0] : {focus: angular.noop});
+                    focusHolder.focus();
+                };
+
+                scope.restoreLastEditPosition = function () {
+                    if (lastRange == null) {
+                        lastRange =  document.createRange();
+                        lastRange.selectNodeContents(textarea[0]);
+                        var node = lastRange.startContainer;
+                        lastRange.setEnd(node, 0);
+                    }
+                    var selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(lastRange);
+                };
+
+                scope.getLastEditPosition = function(){
+                    return lastRange;
                 };
 
                 scope.format = function (cmd, arg) {
@@ -529,12 +561,14 @@ Requires:
                 scope.setHiliteColor = function () {
                     scope.format('hiliteColor', scope.hiliteColor);
                 };
-                scope.textareaCustomFunctions = scope.textareaCustomFunctions || {};
+                scope.textareaCustomFunctions = scope.textareaCustomFunctions || DEFAULT_CUSTOM_FUNCTIONS;
                 for (var i in scope.textareaCustomFunctions) {
-                    if (scope[i] == null) {
-                        scope[i] = scope.textareaCustomFunctions[i];
-                    } else {
-                        console.log('Cannot set custom function `' + i + '`. Already exists function or property');
+                    if (scope.textareaCustomFunctions.hasOwnProperty(i)) {
+                        if (scope[i] == null) {
+                            scope[i] = scope.textareaCustomFunctions[i].bind(null, scope);
+                        } else {
+                            console.log('Cannot set custom function `' + i + '`. Already exists function or property');
+                        }
                     }
                 }
                 scope.format('enableobjectresizing', true);
@@ -563,7 +597,7 @@ Requires:
 
             var createMenu = function (menu) {
 
-                angular.extend(ELEMENTS, custom);
+                ELEMENTS = angular.extend({}, ELEMENTS, custom);
 
                 //Get the default menu or the passed in menu
                 if (angular.isDefined(menu) && menu !== '') {
@@ -633,7 +667,9 @@ Requires:
 
                 if (obj.data && obj.data.length) {
                     for (var item in obj.data) {
-                        el.appendChild(create(obj.data[item]));
+                        if (obj.data.hasOwnProperty(item)) {
+                            el.appendChild(create(obj.data[item]));
+                        }
                     }
                 }
 
@@ -645,6 +681,9 @@ Requires:
                 setCustomElements: setCustomElements
             };
 
+        }])
+        .factory('wysiwgConfig', [ 'wysiwgGuiElements', function (wysiwgGuiElements) {
+            return {menu: DEFAULT_MENU, gui: wysiwgGuiElements, customFunctions: DEFAULT_CUSTOM_FUNCTIONS};
         }])
         .value('wysiwgGuiElements', {
             'bold': {

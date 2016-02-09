@@ -12,8 +12,8 @@ var ngmin = require('gulp-ngmin');
 // Lint Task
 gulp.task('lint', function() {
     return gulp.src('src/angular-wysiwyg.js')
-        .pipe(jshint())
-        .pipe(jshint.reporter('default', {eqnull: true}));
+        .pipe(jshint({eqnull: true}))
+        .pipe(jshint.reporter('default'));
 });
 
 // Concatenate & Minify JS
