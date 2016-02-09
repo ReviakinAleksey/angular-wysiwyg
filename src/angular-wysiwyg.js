@@ -46,7 +46,7 @@ Requires:
     var DEFAULT_CUSTOM_FUNCTIONS = {};
 
     angular.module('wysiwyg.module', ['colorpicker.module'])
-        .directive('wysiwyg', ['$timeout', 'wysiwgGui', '$compile', '$window', '$http', function ($timeout, wysiwgGui, $compile, $window, $http) {
+        .directive('wysiwyg', ['$timeout', 'wysiwgGui', '$compile', '$window', '$http', 'wysiwgConfig', function ($timeout, wysiwgGui, $compile, $window, $http, wysiwgConfig) {
             return {
                 template: '<div>' +
                     '<style>' +
@@ -59,19 +59,10 @@ Requires:
                     '<div class="wysiwyg-image-uploader hidden">' +
                     '   <h4>Insert Image</h4>' +
                     '   <ul class="nav nav-tabs" style="margin-top:10px;margin-bottom:10px">' +
-                    '       <li role="presentation" ng-class="{active:imageView === \'file\'}"><a href="javascript:void(0)" ng-click="changeImageView(\'file\')">File</a></li>' +
                     '       <li role="presentation" ng-class="{active:imageView === \'url\'}"><a href="javascript:void(0)" ng-click="changeImageView(\'url\')">URL</a></li>' +
                     '       <li role="presentation" ng-class="{active:imageView === \'flickr\'}"><a href="javascript:void(0)" ng-click="changeImageView(\'flickr\')">Flickr</a></li>' +
-                    '   </ul>' +
-                    '   <div ng-if="imageView === \'file\'">' +
-                    '       <ul class="list-unstyled">' +
-                    '           <li style="display:inline-block;margin:5px;" ng-repeat="file in files.user">' +
-                    '               <a href="javascript:void(0)" ng-click="selectImage(file.url)">' +
-                    '                   <img src="{{ file.thumbnail_url }}" style="border-radius:7px;max-height:100px;max-width:100px" />' +
-                    '               </a>' +
-                    '           </li>' +
-                    '       </ul>' +    
-                    '   </div>' +
+                    '       <li role="presentation" ng-if="localFiles" ng-class="{active:imageView === \'file\'}"><a href="javascript:void(0)" ng-click="changeImageView(\'file\')">File</a></li>' +
+                    '   </ul>' +                    
                     '   <div ng-if="imageView === \'url\'">' +
                     '       <div class="form-group">' +
                     '           <label>Image URL</label>' +
@@ -90,6 +81,15 @@ Requires:
                     '           <li style="display:inline-block;margin:5px;" ng-repeat="photo in flickrPhotos">' +
                     '               <a href="javascript:void(0)" ng-click="selectImage(flickrUrl(photo))">' +
                     '                   <img ng-src="{{ flickrUrl(photo) }}" style="border-radius:7px;max-height:100px;max-width:100px" />' +
+                    '               </a>' +
+                    '           </li>' +
+                    '       </ul>' +    
+                    '   </div>' +
+                    '   <div ng-if="imageView === \'file\'">' +
+                    '       <ul class="list-unstyled">' +
+                    '           <li style="display:inline-block;margin:5px;" ng-repeat="file in files">' +
+                    '               <a href="javascript:void(0)" ng-click="selectImage(file.url)">' +
+                    '                   <img src="{{ file.thumbnail_url }}" style="border-radius:7px;max-height:100px;max-width:100px" />' +
                     '               </a>' +
                     '           </li>' +
                     '       </ul>' +    
@@ -217,14 +217,15 @@ Requires:
 
                 scope.htmlMode = true;
 
-                scope.files = { user: [], course: [] };
+                scope.files = [];
+                scope.localFiles = false;
 
                 scope.imageAlt = '';
                 scope.imageWidth = '';
                 scope.imageHeight = '';
                 scope.imageUrl = '';
 
-                scope.imageView = 'file';
+                scope.imageView = 'url';
 
                 scope.changeImageView = function(type) {
                     scope.imageView = type;
@@ -239,6 +240,7 @@ Requires:
                 
                 scope.selectImage = function(url) {
                     if(!url) { return false; }
+                    scope.restoreLastEditPosition();
                     scope.format('insertimage', url);
                     applyImageParams(url);
                     element.find('.wysiwyg-image-uploader').addClass('hidden');
@@ -258,7 +260,6 @@ Requires:
                         if(err) { throw new Error(err); }
                         scope.flickrPhotos = result.photos.photo;
                         scope.$apply();
-                        window.console.log(scope.flickrPhotos);
                     });
                 };
 
@@ -270,7 +271,15 @@ Requires:
                     configureWatchers();
                     configureBootstrapTitle();
                     configureListeners();
-                    getFiles();
+                    if (wysiwgConfig.customFunctions.getFiles) {
+                        scope.localFiles = true;
+                        wysiwgConfig.customFunctions.getFiles()
+                            .then(function(resp) {
+                                scope.files = resp;
+                                scope.$apply();
+                            })
+                        ;
+                    }
                     setupFlickr();
                 }
 
@@ -278,14 +287,6 @@ Requires:
                     flickr = new Flickr({
                         api_key: "10e1de182b3a6654302eb521c898de0e"
                     });
-                }
-
-                function getFiles() {
-                    $http.get('/api/v1/users/self/files')
-                        .then(function(resp) {
-                            scope.files.user = resp.data;
-                        })
-                    ;
                 }
 
                 function updateSelectedColorButton(){
@@ -530,12 +531,6 @@ Requires:
                     if (input && input !== undefined)
                         scope.format('createlink', input);
                 };
-
-                // scope.insertImage = function () {
-                //     var input = prompt('Enter the image URL');
-                //     if (input && input !== undefined)
-                //         scope.format('insertimage', input);
-                // };
 
                 scope.insertImage = function () {
                     var uploader = element.find('.wysiwyg-image-uploader');
