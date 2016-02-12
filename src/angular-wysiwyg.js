@@ -56,6 +56,15 @@ Requires:
                     '   .wysiwyg-colorpicker { font-family: arial, sans-serif !important;font-size:16px !important; padding:2px 10px !important;}' +
                     '</style>' +
                     '<div class="wysiwyg-menu"></div>' +
+                    '<div class="wysiwyg-link hidden">' +
+                    '   <div class="form-group">' +
+                    '       <label>Link URL</label>' +
+                    '       <input class="form-control" ng-model="linkUrl" />' +
+                    '   </div>' +
+                    '   <div class="form-group">' +
+                    '       <button class="btn btn-primary capitalized" ng-click="addLink(linkUrl)">Add Link</button>' +
+                    '   </div>' +
+                    '</div>' +
                     '<div class="wysiwyg-image-uploader hidden">' +
                     '   <h4>Insert Image</h4>' +
                     '   <ul class="nav nav-tabs" style="margin-top:10px;margin-bottom:10px">' +
@@ -262,6 +271,8 @@ Requires:
                         scope.$apply();
                     });
                 };
+
+                scope.linkUrl = '';
 
                 init();
 
@@ -539,11 +550,24 @@ Requires:
                     }
                 };
 
-                scope.createLink = function () {
-                    var input = prompt('Enter the link URL');
-                    if (input && input !== undefined)
-                        scope.format('createlink', input);
+                scope.toggleLink = function () {
+                    var link = element.find('.wysiwyg-link');
+                    link.toggleClass('hidden');
                 };
+
+                scope.addLink = function(url) {
+                    if (url) {
+                        scope.restoreLastEditPosition();
+                        scope.format('createlink', url);
+                    }
+                    element.find('.wysiwyg-link').addClass('hidden');
+                };
+
+                // scope.createLink = function () {
+                //     var input = prompt('Enter the link URL');
+                //     if (input && input !== undefined)
+                //         scope.format('createlink', input);
+                // };
 
                 scope.insertImage = function () {
                     var uploader = element.find('.wysiwyg-image-uploader');
@@ -1164,7 +1188,7 @@ Requires:
                     value: 'Link'
                 }, {
                     name: 'ng-click',
-                    value: 'createLink()'
+                    value: 'toggleLink()'
                 }, {
                     name: 'ng-show',
                     value: '!isLink'
